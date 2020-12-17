@@ -169,12 +169,12 @@ namespace SCANsat.SCAN_Map
 			get { return customRange; }
 		}
 
-		#endregion
+        #endregion
 
-		#region Big Map methods and fields
+        #region Big Map methods and fields
 
-		/* MAP: Big Map height map caching */
-		private float[,] big_heightmap;
+        /* MAP: Big Map height map caching */
+        private float[,] big_heightmap;
 		private bool cache;
 		private double centeredLong, centeredLat;
 
@@ -200,199 +200,30 @@ namespace SCANsat.SCAN_Map
 
 		internal double projectLongitude(double lon, double lat)
 		{
-			lon = (lon + 3600 + 180) % 360 - 180;
-			lat = (lat + 1800 + 90) % 180 - 90;
-			switch (projection)
-			{
-				case MapProjection.KavrayskiyVII:
-					lon = Mathf.Deg2Rad * lon;
-					lat = Mathf.Deg2Rad * lat;
-					lon = (3.0f * lon / 2.0f / Math.PI) * Math.Sqrt(Math.PI * Math.PI / 3.0f - lat * lat);
-					return Mathf.Rad2Deg * lon;
-				case MapProjection.Polar:
-					lon = Mathf.Deg2Rad * lon;
-					lat = Mathf.Deg2Rad * lat;
-					if (lat < 0)
-					{
-						lon = 1.3 * Math.Cos(lat) * Math.Sin(lon) - Math.PI / 2;
-					}
-					else
-					{
-						lon = 1.3 * Math.Cos(lat) * Math.Sin(lon) + Math.PI / 2;
-					}
-					return Mathf.Rad2Deg * lon;
-				case MapProjection.Orthographic:
-					lon = Mathf.Deg2Rad * lon;
-					lat = Mathf.Deg2Rad * lat;
-					double centerLon = Mathf.Deg2Rad * centeredLong;
-					double centerLat = Mathf.Deg2Rad * centeredLat;
-
-					if (Math.Sin(centerLat) * Math.Sin(lat) + Math.Cos(centerLat) * Math.Cos(lat) * Math.Cos(lon - centerLon) < 0)
-						return -200;
-
-					lon = 1.5 * Math.Cos(lat) * Math.Sin(lon - centerLon);
-					
-					return Mathf.Rad2Deg * lon;
-				default:
-					return lon;
-			}
+			double easting, northing;
+			SCANmapProjection.project(projection, lon, lat, out easting, out northing, centeredLong, centeredLat);
+			return easting;
 		}
 
 		internal double projectLatitude(double lon, double lat)
 		{
-			lon = (lon + 3600 + 180) % 360 - 180;
-			lat = (lat + 1800 + 90) % 180 - 90;
-			switch (projection)
-			{
-				case MapProjection.Polar:
-					lon = Mathf.Deg2Rad * lon;
-					lat = Mathf.Deg2Rad * lat;
-					if (lat < 0)
-					{
-						lat = 1.3 * Math.Cos(lat) * Math.Cos(lon);
-					}
-					else
-					{
-						lat = -1.3 * Math.Cos(lat) * Math.Cos(lon);
-					}
-					return Mathf.Rad2Deg * lat;
-				case MapProjection.Orthographic:
-					lon = Mathf.Deg2Rad * lon;
-					lat = Mathf.Deg2Rad * lat;
-					double centerLon = Mathf.Deg2Rad * centeredLong;
-					double centerLat = Mathf.Deg2Rad * centeredLat;
-
-					if (Math.Sin(centerLat) * Math.Sin(lat) + Math.Cos(centerLat) * Math.Cos(lat) * Math.Cos(lon - centerLon) < 0)
-						return -200;
-
-					lat = 1.5 * (Math.Cos(centerLat) * Math.Sin(lat) - Math.Sin(centerLat) * Math.Cos(lat) * Math.Cos(lon - centerLon));
-
-					return Mathf.Rad2Deg * lat;
-				default:
-					return lat;
-			}
+			double easting, northing;
+			SCANmapProjection.project(projection, lon, lat, out easting, out northing, centeredLong, centeredLat);
+			return northing;
 		}
 
-		internal double unprojectLongitude(double lon, double lat)
+		internal double unprojectLongitude(double easting, double northing)
 		{
-			if (lat > 90)
-			{
-				lat = 180 - lat;
-				lon += 180;
-			}
-			else if (lat < -90)
-			{
-				lat = -180 - lat;
-				lon += 180;
-			}
-			lon = (lon + 3600 + 180) % 360 - 180;
-			lat = (lat + 1800 + 90) % 180 - 90;
-			switch (projection)
-			{
-				case MapProjection.KavrayskiyVII:
-					lon = Mathf.Deg2Rad * lon;
-					lat = Mathf.Deg2Rad * lat;
-					lon = lon / Math.Sqrt(Mathf.PI * Math.PI / 3.0f - lat * lat) * 2.0f * Math.PI / 3.0f;
-					return Mathf.Rad2Deg * lon;
-				case MapProjection.Polar:
-					lon = Mathf.Deg2Rad * lon;
-					lat = Mathf.Deg2Rad * lat;
-					double lat0 = Math.PI / 2;
-					if (lon < 0)
-					{
-						lon += Math.PI / 2;
-						lat0 = -Math.PI / 2;
-					}
-					else
-					{
-						lon -= Math.PI / 2;
-					}
-					lon /= 1.3;
-					lat /= 1.3;
-					double p = Math.Sqrt(lon * lon + lat * lat);
-					double c = Math.Asin(p);
-					lon = Math.Atan2((lon * Math.Sin(c)), (p * Math.Cos(lat0) * Math.Cos(c) - lat * Math.Sin(lat0) * Math.Sin(c)));
-					lon = (Mathf.Rad2Deg * lon + 180) % 360 - 180;
-					if (lon <= -180)
-						lon = -180;
-					return lon;
-				case MapProjection.Orthographic:
-					lon = Mathf.Deg2Rad * lon;
-					lat = Mathf.Deg2Rad * lat;
-					double centerLon = Mathf.Deg2Rad * centeredLong;
-					double centerLat = Mathf.Deg2Rad * centeredLat;
-
-					double p2 = Math.Sqrt(lon * lon + lat * lat);
-					double c2 = Math.Asin(p2/1.5);
-
-					if (Math.Cos(c2) < 0)
-						return 300;
-
-					lon = centerLon + Math.Atan2(lon * Math.Sin(c2), p2 * Math.Cos(c2) * Math.Cos(centerLat) - lat * Math.Sin(c2) * Math.Sin(centerLat));
-					
-					lon = (Mathf.Rad2Deg * lon + 180) % 360 - 180;
-
-					if (lon <= -180)
-						lon += 360;
-
-					return lon;
-				default:
-					return lon;
-			}
+			double lon, lat;
+			SCANmapProjection.unproject(projection, easting, northing, out lon, out lat, centeredLong, centeredLat);
+			return lon;
 		}
 
-		internal double unprojectLatitude(double lon, double lat)
+		internal double unprojectLatitude(double easting, double northing)
 		{
-			if (lat > 90)
-			{
-				lat = 180 - lat;
-				lon += 180;
-			}
-			else if (lat < -90)
-			{
-				lat = -180 - lat;
-				lon += 180;
-			}
-			lon = (lon + 3600 + 180) % 360 - 180;
-			lat = (lat + 1800 + 90) % 180 - 90;
-			switch (projection)
-			{
-				case MapProjection.Polar:
-					lon = Mathf.Deg2Rad * lon;
-					lat = Mathf.Deg2Rad * lat;
-					double lat0 = Math.PI / 2;
-					if (lon < 0)
-					{
-						lon += Math.PI / 2;
-						lat0 = -Math.PI / 2;
-					}
-					else
-					{
-						lon -= Math.PI / 2;
-					}
-					lon /= 1.3;
-					lat /= 1.3;
-					double p = Math.Sqrt(lon * lon + lat * lat);
-					double c = Math.Asin(p);
-					lat = Math.Asin(Math.Cos(c) * Math.Sin(lat0) + (lat * Math.Sin(c) * Math.Cos(lat0)) / (p));
-					return Mathf.Rad2Deg * lat;
-				case MapProjection.Orthographic:
-					lon = Mathf.Deg2Rad * lon;
-					lat = Mathf.Deg2Rad * lat;
-					double centerLat = Mathf.Deg2Rad * centeredLat;
-
-					double p2 = Math.Sqrt(lon * lon + lat * lat);
-					double c2 = Math.Asin(p2/1.5);
-
-					if (Math.Cos(c2) < 0)
-						return 300;
-
-					lat = Math.Asin(Math.Cos(c2) * Math.Sin(centerLat) + (lat * Math.Sin(c2) * Math.Cos(centerLat)) / p2);
-
-					return Mathf.Rad2Deg * lat;
-				default:
-					return lat;
-			}
+			double lon, lat;
+			SCANmapProjection.unproject(projection, easting, northing, out lon, out lat, centeredLong, centeredLat);
+			return lat;
 		}
 
 		/* MAP: scaling, centering (setting origin), translating, etc */
